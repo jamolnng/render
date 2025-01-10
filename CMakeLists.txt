@@ -1,4 +1,6 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.20)
+
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 include(cmake/prelude.cmake)
 
@@ -12,6 +14,8 @@ project(
 
 include(cmake/project-is-top-level.cmake)
 include(cmake/variables.cmake)
+
+include(cmake/sdl.cmake)
 
 # ---- Declare library ----
 
@@ -37,7 +41,7 @@ set_property(TARGET render_exe PROPERTY OUTPUT_NAME render)
 
 target_compile_features(render_exe PRIVATE cxx_std_20)
 
-target_link_libraries(render_exe PRIVATE render_lib)
+target_link_libraries(render_exe PRIVATE render_lib SDL3::SDL3)
 
 # ---- Install rules ----
 
