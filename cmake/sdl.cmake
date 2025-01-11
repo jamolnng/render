@@ -9,7 +9,16 @@ if(NOT SDL3_FOUND)
     GIT_PROGRESS TRUE
     OVERRIDE_FIND_PACKAGE TRUE
   )
+  set(SDL_STATIC ON)
+  set(SDL_SHARED OFF)
+  set(SDL_STATIC_PIC ON)
+  set(BUILD_SHARED_LIBS FALSE)
+  FetchContent_MakeAvailable(SDL3)
+endif()
 
+find_package(SDL3_ttf QUIET)
+if(NOT SDL3_ttf_FOUND)
+  include(FetchContent)
   FetchContent_Declare(
     SDL3_ttf
     GIT_REPOSITORY https://github.com/libsdl-org/SDL_ttf
@@ -23,5 +32,5 @@ if(NOT SDL3_FOUND)
   set(SDL_SHARED OFF)
   set(SDL_STATIC_PIC ON)
   set(BUILD_SHARED_LIBS FALSE)
-  FetchContent_MakeAvailable(SDL3 SDL3_ttf)
+  FetchContent_MakeAvailable(SDL3_ttf)
 endif()
