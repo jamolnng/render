@@ -21,12 +21,12 @@ public:
   void reset();
 
   template<typename T>
-  inline T* aligned_alloc(std::size_t align = alignof(T))
+  inline T* aligned_alloc(std::ptrdiff_t align = alignof(T))
   {
     return aligned_alloc(sizeof(T), align);
   }
 
-  void* aligned_alloc(std::size_t size, std::size_t align);
+  void* aligned_alloc(std::ptrdiff_t size, std::ptrdiff_t align);
 
   template<typename T>
   inline T* malloc()
@@ -34,7 +34,7 @@ public:
     return (T*)malloc(sizeof(T));
   }
 
-  void* malloc(std::size_t size);
+  void* malloc(std::ptrdiff_t size);
 
   template<typename T>
   inline T* calloc()
@@ -42,7 +42,7 @@ public:
     return (T*)calloc(sizeof(T));
   }
 
-  void* calloc(std::size_t);
+  void* calloc(std::ptrdiff_t size);
 
 protected:
   Arena(const Arena&) = delete;
@@ -50,7 +50,7 @@ protected:
 
 private:
   std::byte* _base;
-  std::size_t _size;
-  std::size_t _pos;
+  std::ptrdiff_t _size;
+  std::ptrdiff_t _pos;
 };
 }  // namespace engine

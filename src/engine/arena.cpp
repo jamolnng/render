@@ -29,7 +29,7 @@ void Arena::reset()
   _pos = 0;
 }
 
-void* Arena::aligned_alloc(std::size_t size, std::size_t align)
+void* Arena::aligned_alloc(std::ptrdiff_t size, std::ptrdiff_t align)
 {
   if (size == 0) {
     return nullptr;
@@ -47,12 +47,12 @@ void* Arena::aligned_alloc(std::size_t size, std::size_t align)
   return p;
 }
 
-void* Arena::malloc(std::size_t size)
+void* Arena::malloc(std::ptrdiff_t size)
 {
   return aligned_alloc(size, alignof(std::max_align_t));
 }
 
-void* Arena::calloc(std::size_t size)
+void* Arena::calloc(std::ptrdiff_t size)
 {
   auto* p = Arena::malloc(size);
   if (p != nullptr) {
