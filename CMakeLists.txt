@@ -21,20 +21,26 @@ include(cmake/sdl.cmake)
 
 add_library(
     render_lib OBJECT
-    source/lib.cpp
+
+    # layout engine
+    src/engine/arena.cpp
+    src/engine/engine.cpp
+
+    # backends
+    src/backend/SDL3/render.cpp
 )
 
 target_include_directories(
     render_lib ${warning_guard}
     PUBLIC
-    "\$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/source>"
+    "\$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>"
 )
 
 target_compile_features(render_lib PUBLIC cxx_std_20)
 
 # ---- Declare executable ----
 
-add_executable(render_exe source/main.cpp)
+add_executable(render_exe src/main.cpp)
 add_executable(render::exe ALIAS render_exe)
 
 set_property(TARGET render_exe PROPERTY OUTPUT_NAME render)
