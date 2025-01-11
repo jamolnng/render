@@ -19,6 +19,9 @@ jobs:
     - uses: actions/setup-python@v5
       with: { python-version: "3.12" }
 
+    - name: Install libusb
+      run: sudo apt-get install -y libusb-1.0-dev
+
     - name: Install codespell
       run: pip3 install codespell
 
