@@ -9,6 +9,8 @@
 
 namespace engine
 {
+using Dimensions = Vec2<std::size_t>;
+
 class Engine
 {
 public:
@@ -17,7 +19,7 @@ public:
   void set_viewbox(Dimensions dims);
   void begin(Dimensions dims);
   void begin();
-  CommandArray end();
+  // CommandArray end();
 
 protected:
   Engine(const Engine&) = delete;

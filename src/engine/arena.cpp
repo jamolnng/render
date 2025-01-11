@@ -20,6 +20,7 @@ Arena::Arena(Arena&& arena)
 {
   arena._base = nullptr;
   arena._size = 0u;
+  arena._pos = 0u;
 }
 
 void Arena::init() {}

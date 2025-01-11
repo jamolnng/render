@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+
 namespace engine
 {
 template<typename T>
@@ -350,54 +352,54 @@ static Vec4<T> operator-(const Vec4<T>& a, const Vec4<U> b)
   return {a.x() - b.x(), a.y() - b.y(), a.z() - b.z(), a.w() - b.w()};
 }
 
-class Dimensions : public Vec2<std::size_t>
-{
-public:
-  using base::base;
+// class Dimensions : public Vec2<std::size_t>
+// {
+// public:
+//   using base::base;
 
-  inline void set(type width, type height) { base::set(width, height); }
-  inline void set_width(type width) { set_x(width); }
-  inline void set_height(type height) { set_y(height); }
+//   inline void set(type width, type height) { base::set(width, height); }
+//   inline void set_width(type width) { set_x(width); }
+//   inline void set_height(type height) { set_y(height); }
 
-  inline type width() { return x(); };
-  inline type height() { return y(); };
-};
+//   inline type width() { return x(); };
+//   inline type height() { return y(); };
+// };
 
-class BoundingBox : public Vec4<std::size_t>
-{
-public:
-  using base::base;
+// class BoundingBox : public Vec4<std::size_t>
+// {
+// public:
+//   using base::base;
 
-  inline void set(type x, type y, type width, type height)
-  {
-    base::set(x, y, width, height);
-  }
-  using base::set_x;
-  using base::set_y;
-  inline void set_width(type width) { set_z(width); }
-  inline void set_height(type height) { set_w(height); }
+//   inline void set(type x, type y, type width, type height)
+//   {
+//     base::set(x, y, width, height);
+//   }
+//   using base::set_x;
+//   using base::set_y;
+//   inline void set_width(type width) { set_z(width); }
+//   inline void set_height(type height) { set_w(height); }
 
-  using base::x;
-  using base::y;
-  inline type width() { return z(); };
-  inline type height() { return w(); };
-};
+//   using base::x;
+//   using base::y;
+//   inline type width() { return z(); };
+//   inline type height() { return w(); };
+// };
 
-class Color : public Vec4<float>
-{
-public:
-  Color(type r, type g, type b, type a) : base(r, g, b, a) {}
-  using base::base;
+// class Color : public Vec4<float>
+// {
+// public:
+//   Color(type r, type g, type b, type a) : base(r, g, b, a) {}
+//   using base::base;
 
-  inline void set(type r, type g, type b, type a) { base::set(r, b, g, a); }
-  inline void set_r(type r) { set_x(r); }
-  inline void set_g(type g) { set_y(g); }
-  inline void set_b(type b) { set_z(b); }
-  inline void set_a(type a) { set_w(a); }
+//   inline void set(type r, type g, type b, type a) { base::set(r, b, g, a); }
+//   inline void set_r(type r) { set_x(r); }
+//   inline void set_g(type g) { set_y(g); }
+//   inline void set_b(type b) { set_z(b); }
+//   inline void set_a(type a) { set_w(a); }
 
-  inline type r() { return x(); }
-  inline type g() { return y(); }
-  inline type b() { return z(); }
-  inline type a() { return w(); }
-};
+//   inline type r() { return x(); }
+//   inline type g() { return y(); }
+//   inline type b() { return z(); }
+//   inline type a() { return w(); }
+// };
 }  // namespace engine
