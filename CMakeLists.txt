@@ -12,6 +12,8 @@ project(
     LANGUAGES CXX
 )
 
+
+
 include(cmake/project-is-top-level.cmake)
 include(cmake/variables.cmake)
 
@@ -47,7 +49,7 @@ set_property(TARGET render_exe PROPERTY OUTPUT_NAME render)
 
 target_compile_features(render_exe PRIVATE cxx_std_20)
 
-target_link_libraries(render_exe PRIVATE render_lib SDL3::SDL3)
+target_link_libraries(render_exe PRIVATE render_lib SDL3::SDL3 SDL3_ttf::SDL3_ttf)
 
 # ---- Install rules ----
 

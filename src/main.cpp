@@ -1,10 +1,98 @@
 #include <array>
+#include <chrono>
 #include <iostream>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
-#include <backend/SDL3/render.hpp>
-#include <engine/engine.hpp>
+#include <SDL3_ttf/SDL_ttf.h>
+
+// #include <SDL3/SDL_ttf.h>
+
+struct rect
+{
+  int32_t x, y, w, h;
+};
+
+struct pos
+{
+  int32_t x, y;
+};
+
+struct color
+{
+  float r, g, b, a;
+};
+
+enum CommandType
+{
+  Rectangle,
+  Text
+};
+
+std::string type2str(CommandType type)
+{
+  switch (type) {
+    case Rectangle:
+      return "Rectangle";
+    case Text:
+      return "Text";
+  }
+}
+
+struct Command
+{
+  CommandType type;
+  uint32_t size;
+  rect bbox;
+};
+
+struct RectCommand : public Command
+{
+  color c;
+
+  static std::size_t push(rect r, color c, char* buf, std::size_t idx)
+  {
+    RectCommand* rc = (RectCommand*)&buf[idx];
+    rc->type = CommandType::Rectangle;
+    rc->size = sizeof(*rc);
+    rc->bbox = r;
+    rc->c = c;
+    return idx + rc->size;
+  }
+};
+
+struct TextCommand : public Command
+{
+  int font;
+  color c;
+  std::size_t nchar;
+  char text[1];
+
+  static std::size_t push(pos p,
+                          int font,
+                          color c,
+                          char* text,
+                          std::size_t nchar,
+                          char* buf,
+                          std::size_t idx)
+  {
+    TextCommand* rc = (TextCommand*)&buf[idx];
+    rc->type = CommandType::Text;
+    rc->size = sizeof(*rc) + nchar;
+    rc->bbox = {p.x, p.y, 0, 0};  // TODO: generate from text
+    // rc->bbox = r;
+    rc->c = c;
+    rc->font = font;
+    rc->nchar = nchar;
+    strncpy(rc->text, text, nchar);
+    return idx + rc->size;
+  }
+};
+
+#define BUF_SIZE 1024 * 1024
+
+char cmdbuf[BUF_SIZE];
+std::size_t cmdidx = 0;
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
 {
@@ -27,12 +115,29 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
     return 1;
   }
 
+  SDL_SetRenderVSync(renderer, 1);
+
   auto surface = SDL_GetWindowSurface(window);
 
-  auto arena = engine::Arena {(char*)malloc(1024 * 1024), 1024 * 1024};
-  auto engine = engine::Engine {arena,
-                                {static_cast<std::size_t>(surface->w),
-                                 static_cast<std::size_t>(surface->h)}};
+  int aa = surface->w / 2;
+  int bb = surface->h / 2;
+  cmdidx = RectCommand::push({0, 0, aa, bb}, {1, 0, 0, 1}, cmdbuf, cmdidx);
+  cmdidx = RectCommand::push({aa, 0, aa, bb}, {0, 1, 0, 1}, cmdbuf, cmdidx);
+  cmdidx = RectCommand::push({0, bb, aa, bb}, {0, 0, 1, 1}, cmdbuf, cmdidx);
+  cmdidx = RectCommand::push({aa, bb, aa, bb}, {1, 1, 1, 1}, cmdbuf, cmdidx);
+  char str[] = "TEST";
+  cmdidx = TextCommand::push(
+      {11, 11}, 0, {1, 1, 1, 1}, str, sizeof(str), cmdbuf, cmdidx);
+  char str2[] = "test2";
+  cmdidx = TextCommand::push(
+      {11, 11}, 0, {1, 1, 1, 1}, str2, sizeof(str2), cmdbuf, cmdidx);
+
+  TTF_Init();
+  TTF_Font* Sans =
+      TTF_OpenFont("/usr/share/fonts/noto/NotoSans-Regular.ttf", 32);
+  TTF_SetFontHinting(Sans, TTF_HINTING_MONO);
+  TTF_SetFontWrapAlignment(Sans, TTF_HORIZONTAL_ALIGN_RIGHT);
+  std::cout << SDL_GetError() << std::endl;
 
   while (true) {
     int finished = 0;
@@ -49,12 +154,59 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
 
     SDL_SetRenderDrawColor(renderer, 31, 31, 31, SDL_ALPHA_OPAQUE);
     SDL_RenderClear(renderer);
-
     surface = SDL_GetWindowSurface(window);
-    engine.begin({static_cast<std::size_t>(surface->w),
-                  static_cast<std::size_t>(surface->h)});
 
-    backend::SDL3_Render();
+    int aa = surface->w / 2;
+    int bb = surface->h / 2;
+    cmdidx = 0;
+    cmdidx = RectCommand::push({0, 0, aa, bb}, {1, 0, 0, 1}, cmdbuf, cmdidx);
+    cmdidx = RectCommand::push({aa, 0, aa, bb}, {0, 1, 0, 1}, cmdbuf, cmdidx);
+    cmdidx = RectCommand::push({0, bb, aa, bb}, {0, 0, 1, 1}, cmdbuf, cmdidx);
+    cmdidx = RectCommand::push({aa, bb, aa, bb}, {1, 1, 1, 1}, cmdbuf, cmdidx);
+    cmdidx = TextCommand::push(
+        {11, 0}, 0, {255, 255, 255, 255}, str, sizeof(str), cmdbuf, cmdidx);
+    cmdidx = TextCommand::push({aa + 11, 0},
+                               0,
+                               {255, 255, 255, 255},
+                               str,
+                               sizeof(str),
+                               cmdbuf,
+                               cmdidx);
+    cmdidx = TextCommand::push(
+        {11, bb}, 0, {255, 255, 255, 255}, str2, sizeof(str2), cmdbuf, cmdidx);
+    cmdidx = TextCommand::push(
+        {aa + 11, bb}, 0, {0, 0, 0, 255}, str2, sizeof(str2), cmdbuf, cmdidx);
+
+    Command* cmd = (Command*)cmdbuf;
+    Command* end = (Command*)&cmdbuf[cmdidx];
+    while (cmd != end) {
+      switch (cmd->type) {
+        case CommandType::Rectangle: {
+          RectCommand* rc = (RectCommand*)cmd;
+          SDL_SetRenderDrawColorFloat(
+              renderer, rc->c.r, rc->c.g, rc->c.b, rc->c.a);
+          SDL_FRect sr = {rc->bbox.x, rc->bbox.y, rc->bbox.w, rc->bbox.h};
+          SDL_RenderFillRect(renderer, &sr);
+        } break;
+        case CommandType::Text: {
+          TextCommand* tc = (TextCommand*)cmd;
+          SDL_Color c = {tc->c.r, tc->c.g, tc->c.b, tc->c.a};
+          SDL_Surface* surfaceMessage =
+              TTF_RenderText_Blended(Sans, tc->text, tc->nchar, c);
+          // int bw, bh;
+          // TTF_GetStringSize(Sans, tc->text, tc->nchar, &bw, &bh);
+          SDL_Rect Message_rect;  // = {tc->bbox.x, tc->bbox.y, bw, bh};
+          SDL_GetSurfaceClipRect(surfaceMessage, &Message_rect);
+          SDL_FRect mr {tc->bbox.x, tc->bbox.y, Message_rect.w, Message_rect.h};
+          SDL_Texture* Message =
+              SDL_CreateTextureFromSurface(renderer, surfaceMessage);
+          SDL_RenderTexture(renderer, Message, NULL, &mr);
+          SDL_DestroySurface(surfaceMessage);
+          SDL_DestroyTexture(Message);
+        } break;
+      }
+      cmd = (Command*)(((char*)cmd) + cmd->size);
+    }
 
     SDL_RenderPresent(renderer);
   }
