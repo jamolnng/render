@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 
 namespace engine
@@ -8,7 +9,7 @@ namespace engine
 class Arena
 {
 public:
-  Arena(char* base, std::size_t size);
+  Arena(std::byte* base, std::size_t size);
   Arena(Arena&& arena);
   template<typename T, std::size_t S>
   Arena(std::array<T, S>& arr)
@@ -20,24 +21,35 @@ public:
   void reset();
 
   template<typename T>
-  T* alloc()
+  inline T* aligned_alloc(std::size_t align = alignof(T))
   {
-    return (T*)alloc(sizeof(T));
+    return aligned_alloc(sizeof(T), align);
   }
 
-  void* alloc(std::size_t size);
+  void* aligned_alloc(std::size_t size, std::size_t align);
 
   template<typename T>
-  void free(T* t)
+  inline T* malloc()
   {
+    return (T*)malloc(sizeof(T));
   }
+
+  void* malloc(std::size_t size);
+
+  template<typename T>
+  inline T* calloc()
+  {
+    return (T*)calloc(sizeof(T));
+  }
+
+  void* calloc(std::size_t);
 
 protected:
   Arena(const Arena&) = delete;
   Arena& operator=(const Arena&) = delete;
 
 private:
-  char* _base;
+  std::byte* _base;
   std::size_t _size;
   std::size_t _pos;
 };

@@ -37,6 +37,7 @@ std::string type2str(CommandType type)
     case Text:
       return "Text";
   }
+  return "UNKNOWN";
 }
 
 struct Command
@@ -91,6 +92,8 @@ struct TextCommand : public Command
 
 #define BUF_SIZE 1024 * 1024
 
+std::array<std::byte, 1024 * 1024> testbuf;
+
 char cmdbuf[BUF_SIZE];
 std::size_t cmdidx = 0;
 
@@ -119,18 +122,19 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
 
   auto surface = SDL_GetWindowSurface(window);
 
+  char str[] = "test";
+  char str2[] = "test";
+
   int aa = surface->w / 2;
   int bb = surface->h / 2;
   cmdidx = RectCommand::push({0, 0, aa, bb}, {1, 0, 0, 1}, cmdbuf, cmdidx);
   cmdidx = RectCommand::push({aa, 0, aa, bb}, {0, 1, 0, 1}, cmdbuf, cmdidx);
   cmdidx = RectCommand::push({0, bb, aa, bb}, {0, 0, 1, 1}, cmdbuf, cmdidx);
   cmdidx = RectCommand::push({aa, bb, aa, bb}, {1, 1, 1, 1}, cmdbuf, cmdidx);
-  char str[] = "TEST";
   cmdidx = TextCommand::push(
-      {11, 11}, 0, {1, 1, 1, 1}, str, sizeof(str), cmdbuf, cmdidx);
-  char str2[] = "test2";
+      {11, 11}, 0, {1, 1, 1, 1}, str, strlen(str), cmdbuf, cmdidx);
   cmdidx = TextCommand::push(
-      {11, 11}, 0, {1, 1, 1, 1}, str2, sizeof(str2), cmdbuf, cmdidx);
+      {11, 11}, 0, {1, 1, 1, 1}, str2, strlen(str2), cmdbuf, cmdidx);
 
   TTF_Init();
   TTF_Font* Sans =
@@ -164,18 +168,18 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
     cmdidx = RectCommand::push({0, bb, aa, bb}, {0, 0, 1, 1}, cmdbuf, cmdidx);
     cmdidx = RectCommand::push({aa, bb, aa, bb}, {1, 1, 1, 1}, cmdbuf, cmdidx);
     cmdidx = TextCommand::push(
-        {11, 0}, 0, {255, 255, 255, 255}, str, sizeof(str), cmdbuf, cmdidx);
+        {11, 0}, 0, {255, 255, 255, 255}, str, strlen(str), cmdbuf, cmdidx);
     cmdidx = TextCommand::push({aa + 11, 0},
                                0,
                                {255, 255, 255, 255},
                                str,
-                               sizeof(str),
+                               strlen(str),
                                cmdbuf,
                                cmdidx);
     cmdidx = TextCommand::push(
-        {11, bb}, 0, {255, 255, 255, 255}, str2, sizeof(str2), cmdbuf, cmdidx);
+        {11, bb}, 0, {255, 255, 255, 255}, str2, strlen(str2), cmdbuf, cmdidx);
     cmdidx = TextCommand::push(
-        {aa + 11, bb}, 0, {0, 0, 0, 255}, str2, sizeof(str2), cmdbuf, cmdidx);
+        {aa + 11, bb}, 0, {0, 0, 0, 255}, str2, strlen(str2), cmdbuf, cmdidx);
 
     Command* cmd = (Command*)cmdbuf;
     Command* end = (Command*)&cmdbuf[cmdidx];
@@ -184,20 +188,29 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
         case CommandType::Rectangle: {
           RectCommand* rc = (RectCommand*)cmd;
           SDL_SetRenderDrawColorFloat(
-              renderer, rc->c.r, rc->c.g, rc->c.b, rc->c.a);
-          SDL_FRect sr = {rc->bbox.x, rc->bbox.y, rc->bbox.w, rc->bbox.h};
+              renderer, (int)rc->c.r, (int)rc->c.g, (int)rc->c.b, (int)rc->c.a);
+          SDL_FRect sr = {(float)rc->bbox.x,
+                          (float)rc->bbox.y,
+                          (float)rc->bbox.w,
+                          (float)rc->bbox.h};
           SDL_RenderFillRect(renderer, &sr);
         } break;
         case CommandType::Text: {
           TextCommand* tc = (TextCommand*)cmd;
-          SDL_Color c = {tc->c.r, tc->c.g, tc->c.b, tc->c.a};
+          SDL_Color c = {(uint8_t)tc->c.r,
+                         (uint8_t)tc->c.g,
+                         (uint8_t)tc->c.b,
+                         (uint8_t)tc->c.a};
           SDL_Surface* surfaceMessage =
               TTF_RenderText_Blended(Sans, tc->text, tc->nchar, c);
           // int bw, bh;
           // TTF_GetStringSize(Sans, tc->text, tc->nchar, &bw, &bh);
           SDL_Rect Message_rect;  // = {tc->bbox.x, tc->bbox.y, bw, bh};
           SDL_GetSurfaceClipRect(surfaceMessage, &Message_rect);
-          SDL_FRect mr {tc->bbox.x, tc->bbox.y, Message_rect.w, Message_rect.h};
+          SDL_FRect mr {(float)tc->bbox.x,
+                        (float)tc->bbox.y,
+                        (float)Message_rect.w,
+                        (float)Message_rect.h};
           SDL_Texture* Message =
               SDL_CreateTextureFromSurface(renderer, surfaceMessage);
           SDL_RenderTexture(renderer, Message, NULL, &mr);
