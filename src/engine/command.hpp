@@ -60,7 +60,7 @@ struct TextCommand : public Command
   static std::size_t push(Point p,
                           int font,
                           Color c,
-                          char* text,
+                          const char* text,
                           std::size_t nchar,
                           char* buf,
                           std::size_t idx)
