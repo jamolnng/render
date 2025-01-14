@@ -117,8 +117,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
   SDL_Window* window = NULL;
   SDL_Renderer* renderer = NULL;
 
-  auto window_flags =
-      SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_OPENGL;
+  auto window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
+      | SDL_WINDOW_OPENGL | SDL_WINDOW_ALWAYS_ON_TOP;
 
   if (!SDL_CreateWindowAndRenderer(
           "Flip Fluid Sim", 480, 480, window_flags, &window, &renderer))
@@ -149,8 +149,10 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
   float fps = 100;
 
   bool move = false;
+  bool bordered = true;
 
   while (true) {
+    auto starttime = SDL_GetTicks();
     surface = SDL_GetWindowSurface(window);
 
     scale = std::min((surface->w - 15.0f) / f.fNumX,
@@ -175,6 +177,16 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
         move = false;
         f.scene.obstacleVelX = 0.0f;
         f.scene.obstacleVelY = 0.0f;
+      }
+      if (event.type == SDL_EVENT_KEY_DOWN) {
+        if (event.key.key == SDLK_B) {
+          bordered = !bordered;
+          SDL_SetWindowBordered(window, bordered);
+        }
+        if (event.key.key == SDLK_ESCAPE) {
+          finished = 1;
+          break;
+        }
       }
     }
     if (finished) {
@@ -256,6 +268,11 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
       std::string newt = std::string("Flip Fluid Sim (")
           + std::to_string((int)fps) + std::string(" fps)");
       SDL_SetWindowTitle(window, newt.c_str());
+    }
+    constexpr auto fpslimit = 60.0f;
+    auto captime = SDL_GetTicks() - starttime;
+    if (captime < 1000.0f / fpslimit) {
+      SDL_Delay(1000.0f / fpslimit - captime);
     }
   }
 
