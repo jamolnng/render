@@ -117,8 +117,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
   SDL_Window* window = NULL;
   SDL_Renderer* renderer = NULL;
 
-  auto window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
-      | SDL_WINDOW_OPENGL | SDL_WINDOW_ALWAYS_ON_TOP;
+  auto window_flags = SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_OPENGL
+      | SDL_WINDOW_ALWAYS_ON_TOP;
 
   if (!SDL_CreateWindowAndRenderer(
           "Flip Fluid Sim", 480, 480, window_flags, &window, &renderer))
