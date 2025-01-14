@@ -121,14 +121,14 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
       SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_OPENGL;
 
   if (!SDL_CreateWindowAndRenderer(
-          "Flip Fluid Sim", 640, 640, window_flags, &window, &renderer))
+          "Flip Fluid Sim", 480, 480, window_flags, &window, &renderer))
   {
     SDL_Log("SDL_CreateWindowAndRenderer failed (%s)", SDL_GetError());
     SDL_Quit();
     return 1;
   }
 
-  // SDL_SetRenderVSync(renderer, 1);
+  SDL_SetRenderVSync(renderer, 1);
 
   auto surface = SDL_GetWindowSurface(window);
 
@@ -248,11 +248,11 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
                 255);
 
     SDL_RenderPresent(renderer);
-    newtime = SDL_GetTicks();
     auto ur = 70;
     if (p++ >= ur) {
+      newtime = SDL_GetTicks();
       p -= ur;
-      fps = 1000.0f / (newtime - oldtime);
+      fps = 1000.0f * (float)ur / (newtime - oldtime);
       std::string newt = std::string("Flip Fluid Sim (")
           + std::to_string((int)fps) + std::string(" fps)");
       SDL_SetWindowTitle(window, newt.c_str());

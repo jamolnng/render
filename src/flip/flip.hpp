@@ -694,7 +694,7 @@ public:
     simScale = height / simHeight;
     simWidth = width / simScale;
 
-    int res = 100;
+    int res = 32;
 
     double tankHeight = 1.0 * simHeight;
     double tankWidth = 1.0 * simWidth;
@@ -740,7 +740,7 @@ public:
     for (auto i = 0; i < fNumX; i++) {
       for (auto j = 0; j < fNumY; j++) {
         auto s = 1.0;  // fluid
-        if (i == 0 || ((i == 100 || i == 101) && j < 75) || i == (int)fNumX - 1 || j == 0) {
+        if (i == 0 || i == (int)fNumX - 1 || j == 0) {
           s = 0.0;  // solid
         }
         this->s[i * n + j] = s;
