@@ -20,6 +20,7 @@
 #include <SDL3/SDL_video.h>
 
 // engine header
+#include <SDL3/SDL_hints.h>
 #include <engine/command.hpp>
 #include <flip/flip.hpp>
 
@@ -190,6 +191,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
     SDL_Log("SDL_Init failed (%s)", SDL_GetError());
     return 1;
   }
+  SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
 
   SDL_Window* window = nullptr;
   SDL_Renderer* renderer = nullptr;
