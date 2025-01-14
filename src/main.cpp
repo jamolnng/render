@@ -8,6 +8,7 @@
 
 // sdl headers
 #include <SDL3/SDL_events.h>
+#include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_log.h>
@@ -20,7 +21,6 @@
 #include <SDL3/SDL_video.h>
 
 // engine header
-#include <SDL3/SDL_hints.h>
 #include <engine/command.hpp>
 #include <flip/flip.hpp>
 
