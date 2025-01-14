@@ -32,16 +32,14 @@ public:
 
   struct Particle
   {
-    double u, v;
-    double du, dv;
-    double density;
+    double x, y;
   };
 
   struct Scene
   {
     double gravity {-9.81};
     double dt {1.0 / 120.0};
-    double flipRatio {0.9f};
+    double flipRatio {0.95f};
     int numPressureIters {100};
     int numParticleIters {2};
     int frameNr {0};
@@ -90,7 +88,7 @@ public:
 
     this->maxParticles = maxParticles;
 
-    this->particlePos = std::vector<double>(2 * maxParticles, 0.0);
+    this->particlePos = std::vector<Particle>(maxParticles, Particle {0, 0});
     this->particleColor = std::vector<Color>(maxParticles, Color {0, 0, 1.0});
 
     this->particleVel = std::vector<double>(2 * maxParticles, 0.0);
@@ -127,21 +125,21 @@ public:
     const int n = fNumY;
     const double cd = std::sqrt(2.0) * this->h;
 
-    for (auto i = 1u; i < fNumX - 2; i++) {
-      for (auto j = 1u; j < fNumY - 2; j++) {
-        this->s[i * n + j] = 1.0;
-        double dx = (i + 0.5f) * this->h - x;
-        double dy = (j + 0.5f) * this->h - y;
+    // for (auto i = 1u; i < fNumX - 2; i++) {
+    //   for (auto j = 1u; j < fNumY - 2; j++) {
+    //     this->s[i * n + j] = 1.0;
+    //     double dx = (i + 0.5f) * this->h - x;
+    //     double dy = (j + 0.5f) * this->h - y;
 
-        if (dx * dx + dy * dy < r * r) {
-          this->s[i * n + j] = 0.0;
-          this->u[i * n + j] = vx;
-          this->u[(i + 1) * n + j] = vx;
-          this->v[i * n + j] = vy;
-          this->v[i * n + j + 1] = vy;
-        }
-      }
-    }
+    //     if (dx * dx + dy * dy < r * r) {
+    //       this->s[i * n + j] = 0.0;
+    //       this->u[i * n + j] = vx;
+    //       this->u[(i + 1) * n + j] = vx;
+    //       this->v[i * n + j] = vy;
+    //       this->v[i * n + j + 1] = vy;
+    //     }
+    //   }
+    // }
 
     scene.showObstacle = true;
     scene.obstacleVelX = vx;
@@ -152,8 +150,9 @@ public:
   {
     for (auto i = 0UL; i < numParticles; i++) {
       particleVel[(2 * i) + 1] += dt * gravity;
-      particlePos[(2 * i)] += particleVel[2 * i] * dt;
-      particlePos[(2 * i) + 1] += particleVel[(2 * i) + 1] * dt;
+      auto& ppos = particlePos[i];
+      ppos.x += particleVel[2 * i] * dt;
+      ppos.y += particleVel[(2 * i) + 1] * dt;
     }
   }
 
@@ -164,8 +163,9 @@ public:
     std::fill(numCellParticles.begin(), numCellParticles.end(), 0);
 
     for (auto i = 0; i < numParticles; i++) {
-      double x = particlePos[(2 * i)];
-      double y = particlePos[(2 * i) + 1];
+      auto& ppos = particlePos[i];
+      const double x = ppos.x;
+      const double y = ppos.y;
 
       double xi = std::clamp(std::floor(x * pInvSpacing), 0.0, pNumX - 1.0);
       double yi = std::clamp(std::floor(y * pInvSpacing), 0.0, pNumY - 1.0);
@@ -182,8 +182,9 @@ public:
     firstCellParticle[(std::size_t)pNumCells] = first;
 
     for (auto i = 0; i < numParticles; i++) {
-      double x = particlePos[(2 * i)];
-      double y = particlePos[(2 * i) + 1];
+      auto& ppos = particlePos[i];
+      const double x = ppos.x;
+      const double y = ppos.y;
 
       double xi = std::clamp(std::floor(x * pInvSpacing), 0.0, pNumX - 1.0);
       double yi = std::clamp(std::floor(y * pInvSpacing), 0.0, pNumY - 1.0);
@@ -197,8 +198,9 @@ public:
 
     for (auto iter = 0; iter < numIters; iter++) {
       for (auto i = 0; i < numParticles; i++) {
-        double px = particlePos[(2 * i)];
-        double py = particlePos[(2 * i) + 1];
+        auto& ppos = particlePos[i];
+        const double px = ppos.x;
+        const double py = ppos.y;
 
         double pxi = std::floor(px * pInvSpacing);
         double pyi = std::floor(py * pInvSpacing);
@@ -217,8 +219,9 @@ public:
               if (id == i) {
                 continue;
               }
-              double qx = particlePos[(2 * id)];
-              double qy = particlePos[(2 * id) + 1];
+              auto& ppos = particlePos[id];
+              const double qx = ppos.x;
+              const double qy = ppos.y;
 
               double dx = qx - px;
               double dy = qy - py;
@@ -230,10 +233,12 @@ public:
               double s = 0.5 * (minDist - d) / d;
               dx *= s;
               dy *= s;
-              particlePos[(2 * i)] -= dx;
-              particlePos[(2 * i) + 1] -= dy;
-              particlePos[(2 * id)] += dx;
-              particlePos[(2 * id) + 1] += dy;
+              auto& ppos1 = particlePos[i];
+              ppos1.x -= dx;
+              ppos1.y -= dy;
+              auto& ppos2 = particlePos[id];
+              ppos2.x += dx;
+              ppos2.y += dy;
 
               // diffuse colors
               // for (var k = 0; k < 3; k++) {
@@ -269,8 +274,9 @@ public:
     double maxY = (this->fNumY - 1) * h - r;
 
     for (auto i = 0; i < numParticles; i++) {
-      double x = particlePos[(2 * i)];
-      double y = particlePos[(2 * i) + 1];
+      auto& ppos = particlePos[i];
+      double x = ppos.x;
+      double y = ppos.y;
 
       double dx = x - obstacleX;
       double dy = y - obstacleY;
@@ -300,8 +306,8 @@ public:
         particleVel[(2 * i) + 1] = 0.0;
       }
 
-      particlePos[(2 * i)] = x;
-      particlePos[(2 * i) + 1] = y;
+      ppos.x = x;
+      ppos.y = y;
     }
   }
 
@@ -315,8 +321,9 @@ public:
     std::fill(particleDensity.begin(), particleDensity.end(), 0.0);
 
     for (auto i = 0; i < numParticles; i++) {
-      double x = particlePos[(2 * i)];
-      double y = particlePos[(2 * i) + 1];
+      auto& ppos = particlePos[i];
+      double x = ppos.x;
+      double y = ppos.y;
 
       x = std::clamp(x, h, (this->fNumX - 1.0) * h);
       y = std::clamp(y, h, (this->fNumY - 1.0) * h);
@@ -384,8 +391,9 @@ public:
       }
 
       for (auto i = 0; i < numParticles; i++) {
-        double x = particlePos[(2 * i)];
-        double y = particlePos[(2 * i) + 1];
+        auto& ppos = particlePos[i];
+        double x = ppos.x;
+        double y = ppos.y;
         double xi = std::clamp(std::floor(x * h1), 0.0, fNumX - 1.0);
         double yi = std::clamp(std::floor(y * h1), 0.0, fNumY - 1.0);
         int cellNr = (int)(xi * n + yi);
@@ -404,8 +412,9 @@ public:
       auto& d = component == 0 ? du : dv;
 
       for (auto i = 0; i < numParticles; i++) {
-        double x = particlePos[(2 * i)];
-        double y = particlePos[(2 * i) + 1];
+        auto& ppos = particlePos[i];
+        double x = ppos.x;
+        double y = ppos.y;
         x = std::clamp(x, h, (fNumX - 1.0) * h);
         y = std::clamp(y, h, (fNumY - 1.0) * h);
 
@@ -517,10 +526,10 @@ public:
     double n = fNumY;
     double cp = density * h / dt;
 
-    for (auto i = 0; i < fNumCells; i++) {
-      double u = this->u[i];
-      double v = this->v[i];
-    }
+    // for (auto i = 0; i < fNumCells; i++) {
+    //   double u = this->u[i];
+    //   double v = this->v[i];
+    // }
 
     for (auto iter = 0; iter < numIters; iter++) {
       for (auto i = 1; i < fNumX - 1.0; i++) {
@@ -559,7 +568,7 @@ public:
             double p = -div / s;
             p *= overRelaxation;
             this->p[center] += cp * p;
-            
+
             this->u[center] -= sx0 * p;
             this->u[right] += sx1 * p;
             this->v[center] -= sy0 * p;
@@ -719,8 +728,9 @@ public:
     auto p = 0;
     for (auto i = 0; i < nx; i++) {
       for (auto j = 0; j < ny; j++) {
-        particlePos[p++] = res_h + r + dx * i + (j % 2 == 0 ? 0.0 : r);
-        particlePos[p++] = res_h + r + dy * j;
+        auto& ppos = particlePos[p++];
+        ppos.x = res_h + r + dx * i + (j % 2 == 0 ? 0.0 : r);
+        ppos.y = res_h + r + dy * j;
       }
     }
 
@@ -730,7 +740,7 @@ public:
     for (auto i = 0; i < fNumX; i++) {
       for (auto j = 0; j < fNumY; j++) {
         auto s = 1.0;  // fluid
-        if (i == 0 || i == (int)fNumX - 1 || j == 0) {
+        if (i == 0 || ((i == 100 || i == 101) && j < 75) || i == (int)fNumX - 1 || j == 0) {
           s = 0.0;  // solid
         }
         this->s[i * n + j] = s;
@@ -763,7 +773,7 @@ public:
   std::vector<Color> cellColor;
 
   int maxParticles;
-  std::vector<double> particlePos;
+  std::vector<Particle> particlePos;
   std::vector<Color> particleColor;
 
   std::vector<double> particleVel;

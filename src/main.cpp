@@ -121,7 +121,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
       SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_OPENGL;
 
   if (!SDL_CreateWindowAndRenderer(
-          "Flip Fluid Sim", 1080, 1080, window_flags, &window, &renderer))
+          "Flip Fluid Sim", 640, 640, window_flags, &window, &renderer))
   {
     SDL_Log("SDL_CreateWindowAndRenderer failed (%s)", SDL_GetError());
     SDL_Quit();
@@ -167,7 +167,9 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
         move = true;
         float x, y;
         SDL_GetMouseState(&x, &y);
-        f.setObstacle(x / f.simScale, (surface->w - y) / f.simScale, true);
+        x = std::clamp(x, 0.0f, (float)surface->w);
+        y = std::clamp(y, 0.0f, (float)surface->h);
+        f.setObstacle(x / f.simScale, (surface->h - y) / f.simScale, true);
       }
       if (event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
         move = false;
@@ -182,8 +184,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
       float x, y;
       SDL_GetMouseState(&x, &y);
       x = std::clamp(x, 0.0f, (float)surface->w);
-      y = std::clamp(y, 0.0f, (float)surface->w);
-      f.setObstacle(x / f.simScale, (surface->w - y) / f.simScale, false);
+      y = std::clamp(y, 0.0f, (float)surface->h);
+      f.setObstacle(x / f.simScale, (surface->h - y) / f.simScale, false);
     }
 
     f.simulate();
