@@ -1,6 +1,6 @@
 # render
 
-This is the render project.
+![](screenshot.png)
 
 # Building and installing
 
