@@ -1,103 +1,179 @@
+#include <algorithm>
 #include <array>
-#include <chrono>
+#include <bit>
 #include <cstdlib>
-#include <iostream>
+#include <ctime>
+#include <string>
+#include <vector>
 
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_main.h>
-#include <SDL3_ttf/SDL_ttf.h>
+// sdl headers
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_log.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_render.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_timer.h>
+#include <SDL3/SDL_video.h>
+
+// engine header
 #include <engine/command.hpp>
 #include <flip/flip.hpp>
 
 using engine::Command;
 using engine::CommandType;
 using engine::RectCommand;
-using engine::TextCommand;
+// using engine::TextCommand;
 
-#define BUF_SIZE 1024 * 1024 * sizeof(engine::RectCommand)
-char cmdbuf[BUF_SIZE];
-std::size_t cmdidx = 0;
+#define BUF_SIZE (1024UL * 1024UL * sizeof(engine::RectCommand))
+static std::array<char, BUF_SIZE> cmdbuf {};
+static std::size_t cmdidx = 0;
 
-void draw_grid(int size_x,
-               int size_y,
-               int w,
-               int h,
+namespace
+{
+void draw_grid(unsigned int size_x,
+               unsigned int size_y,
+               unsigned int width,
+               unsigned int height,
                float scale,
                const std::vector<sim::FlipFluid::Color>& colors)
 {
-  using R = engine::RectCommand;
-  float ox = ((float)w / 2.0f - (float)size_x * scale / 2.0f);
-  float oy = ((float)h / 2.0f - (float)size_y * scale / 2.0f);
-  for (auto i = 0; i < size_x; i++) {
-    for (auto j = 0; j < size_y; j++) {
-      auto k = size_y - j - 1;
-      auto r = colors[i * size_y + k].r;
-      auto g = colors[i * size_y + k].g;
-      auto b = colors[i * size_y + k].b;
-      cmdidx = R::push({(float)i * scale + ox,
-                        (float)j * scale + oy,
-                        (float)(1.0f) * (scale - 1.0f),
-                        (float)(1.0f) * (scale - 1.0f)},
-                       {(float)r, (float)g, (float)b, 1},
-                       cmdbuf,
-                       cmdidx);
+  const float offsetx = ((static_cast<float>(width) / 2.0F)
+                         - (static_cast<float>(size_x) * scale / 2.0F));
+  const float offsety = ((static_cast<float>(height) / 2.0F)
+                         - (static_cast<float>(size_y) * scale / 2.0F));
+  for (auto i = 0UL; i < size_x; i++) {
+    for (auto j = 0UL; j < size_y; j++) {
+      const auto fixedk = size_y - j - 1;
+      const auto fixedidx = static_cast<std::size_t>((i * size_y) + fixedk);
+      const auto cred = colors[fixedidx].r;
+      const auto cgreen = colors[fixedidx].g;
+      const auto cblue = colors[fixedidx].b;
+      cmdidx =
+          engine::RectCommand::push({(static_cast<float>(i) * scale) + offsetx,
+                                     (static_cast<float>(j) * scale) + offsety,
+                                     (1.0F) * (scale - 1.0F),
+                                     (1.0F) * (scale - 1.0F)},
+                                    {static_cast<float>(cred),
+                                     static_cast<float>(cgreen),
+                                     static_cast<float>(cblue),
+                                     1},
+                                    cmdbuf.data(),
+                                    cmdidx);
     }
   }
 }
 
-void set_pixel(
-    SDL_Renderer* rend, int x, int y, Uint8 r, Uint8 g, Uint8 b, Uint8 a)
+void set_pixel(SDL_Renderer* rend,
+               int posx,
+               int posy,
+               Uint8 cred,
+               Uint8 cgreen,
+               Uint8 cblue,
+               Uint8 calpha)
 {
-  SDL_SetRenderDrawColor(rend, r, g, b, a);
-  SDL_RenderPoint(rend, x, y);
+  SDL_SetRenderDrawColor(rend, cred, cgreen, cblue, calpha);
+  SDL_RenderPoint(rend, static_cast<float>(posx), static_cast<float>(posy));
 }
 
 void draw_circle(SDL_Renderer* surface,
                  int n_cx,
                  int n_cy,
                  int radius,
-                 Uint8 r,
-                 Uint8 g,
-                 Uint8 b,
-                 Uint8 a)
+                 Uint8 cred,
+                 Uint8 cgreen,
+                 Uint8 cblue,
+                 Uint8 calpha)
 {
   // if the first pixel in the screen is represented by (0,0) (which is in sdl)
   // remember that the beginning of the circle is not in the middle of the pixel
   // but to the left-top from it:
 
-  double error = (double)-radius;
-  double x = (double)radius - 0.5;
-  double y = (double)0.5;
-  double cx = n_cx - 0.5;
-  double cy = n_cy - 0.5;
+  auto error = static_cast<double>(-radius);
+  constexpr auto pixel_offset = 0.5;
+  double posx = static_cast<double>(radius) - pixel_offset;
+  double posy = pixel_offset;
+  const double centerx = n_cx - pixel_offset;
+  const double centery = n_cy - pixel_offset;
 
-  while (x >= y) {
-    set_pixel(surface, (int)(cx + x), (int)(cy + y), r, g, b, a);
-    set_pixel(surface, (int)(cx + y), (int)(cy + x), r, g, b, a);
+  while (posx >= posy) {
+    set_pixel(surface,
+              static_cast<int>(centerx + posx),
+              static_cast<int>(centery + posy),
+              cred,
+              cgreen,
+              cblue,
+              calpha);
+    set_pixel(surface,
+              static_cast<int>(centerx + posy),
+              static_cast<int>(centery + posx),
+              cred,
+              cgreen,
+              cblue,
+              calpha);
 
-    if (x > 0.0f || x < 0.0f) {
-      set_pixel(surface, (int)(cx - x), (int)(cy + y), r, g, b, a);
-      set_pixel(surface, (int)(cx + y), (int)(cy - x), r, g, b, a);
+    if (posx > 0.0 || posx < 0.0) {
+      set_pixel(surface,
+                static_cast<int>(centerx - posx),
+                static_cast<int>(centery + posy),
+                cred,
+                cgreen,
+                cblue,
+                calpha);
+      set_pixel(surface,
+                static_cast<int>(centerx + posy),
+                static_cast<int>(centery - posx),
+                cred,
+                cgreen,
+                cblue,
+                calpha);
     }
 
-    if (y > 0.0f || y < 0.0f != 0) {
-      set_pixel(surface, (int)(cx + x), (int)(cy - y), r, g, b, a);
-      set_pixel(surface, (int)(cx - y), (int)(cy + x), r, g, b, a);
+    if (posy > 0.0 || posy < 0.0) {
+      set_pixel(surface,
+                static_cast<int>(centerx + posx),
+                static_cast<int>(centery - posy),
+                cred,
+                cgreen,
+                cblue,
+                calpha);
+      set_pixel(surface,
+                static_cast<int>(centerx - posy),
+                static_cast<int>(centery + posx),
+                cred,
+                cgreen,
+                cblue,
+                calpha);
     }
 
-    if ((x > 0.0f || x < 0.0f) != 0 && (y > 0.0f || y < 0.0f != 0)) {
-      set_pixel(surface, (int)(cx - x), (int)(cy - y), r, g, b, a);
-      set_pixel(surface, (int)(cx - y), (int)(cy - x), r, g, b, a);
+    if ((posx > 0.0 || posx < 0.0) && (posy > 0.0 || posy < 0.0)) {
+      set_pixel(surface,
+                static_cast<int>(centerx - posx),
+                static_cast<int>(centery - posy),
+                cred,
+                cgreen,
+                cblue,
+                calpha);
+      set_pixel(surface,
+                static_cast<int>(centerx - posy),
+                static_cast<int>(centery - posx),
+                cred,
+                cgreen,
+                cblue,
+                calpha);
     }
 
-    error += y;
-    ++y;
-    error += y;
+    error += posy;
+    ++posy;
+    error += posy;
 
     if (error >= 0) {
-      --x;
-      error -= x;
-      error -= x;
+      --posx;
+      error -= posx;
+      error -= posx;
     }
     /*
     // sleep for debug
@@ -106,6 +182,7 @@ void draw_circle(SDL_Renderer* surface,
     */
   }
 }
+}  // namespace
 
 auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
 {
@@ -114,14 +191,19 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
     return 1;
   }
 
-  SDL_Window* window = NULL;
-  SDL_Renderer* renderer = NULL;
+  SDL_Window* window = nullptr;
+  SDL_Renderer* renderer = nullptr;
 
   auto window_flags = SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_OPENGL
       | SDL_WINDOW_ALWAYS_ON_TOP;
 
-  if (!SDL_CreateWindowAndRenderer(
-          "Flip Fluid Sim", 480, 480, window_flags, &window, &renderer))
+  constexpr auto window_size = 480;
+  if (!SDL_CreateWindowAndRenderer("Flip Fluid Sim",
+                                   window_size,
+                                   window_size,
+                                   window_flags,
+                                   &window,
+                                   &renderer))
   {
     SDL_Log("SDL_CreateWindowAndRenderer failed (%s)", SDL_GetError());
     SDL_Quit();
@@ -130,23 +212,20 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
 
   SDL_SetRenderVSync(renderer, 1);
 
-  auto surface = SDL_GetWindowSurface(window);
+  auto* surface = SDL_GetWindowSurface(window);
 
-  TTF_Init();
-  TTF_Font* Sans = TTF_OpenFont("/usr/share/fonts/noto/NotoSans-Bold.ttf", 20);
-  TTF_SetFontHinting(Sans, TTF_HINTING_MONO);
-  TTF_SetFontWrapAlignment(Sans, TTF_HORIZONTAL_ALIGN_RIGHT);
+  // TTF_Init();
+  // TTF_Font* Sans = TTF_OpenFont("/usr/share/fonts/noto/NotoSans-Bold.ttf",
+  // 20); TTF_SetFontHinting(Sans, TTF_HINTING_MONO);
+  // TTF_SetFontWrapAlignment(Sans, TTF_HORIZONTAL_ALIGN_RIGHT);
 
-  std::srand(time(0));
-
-  sim::FlipFluid f {(float)surface->w, (float)surface->h};
-  float scale =
-      std::min((surface->w - 15.0f) / f.fNumX, (surface->h - 15.0f) / f.fNumY);
+  sim::FlipFluid flip {static_cast<double>(surface->w),
+                       static_cast<double>(surface->h)};
 
   auto newtime = SDL_GetTicks();
-  auto oldtime = newtime;
-  int p = 0;
-  float fps = 100;
+  decltype(newtime) oldtime {};
+  int framecount = 0;
+  float fps {};
 
   bool move = false;
   bool bordered = true;
@@ -155,28 +234,34 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
     auto starttime = SDL_GetTicks();
     surface = SDL_GetWindowSurface(window);
 
-    scale = std::min((surface->w - 15.0f) / f.fNumX,
-                     (surface->h - 15.0f) / f.fNumY);
+    constexpr auto padding = 15.0;
+    auto scale =
+        std::min((static_cast<double>(surface->w) - padding) / flip.fNumX,
+                 (static_cast<double>(surface->h) - padding) / flip.fNumY);
     oldtime = newtime;
-    int finished = 0;
+    bool finished = false;
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
       if (event.type == SDL_EVENT_QUIT) {
-        finished = 1;
+        finished = true;
         break;
       }
       if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
         move = true;
-        float x, y;
-        SDL_GetMouseState(&x, &y);
-        x = std::clamp(x, 0.0f, (float)surface->w);
-        y = std::clamp(y, 0.0f, (float)surface->h);
-        f.setObstacle(x / f.simScale, (surface->h - y) / f.simScale, true);
+        float mposx {0.0F};
+        float mposy {0.0F};
+        SDL_GetMouseState(&mposx, &mposy);
+        mposx = std::clamp(mposx, 0.0F, static_cast<float>(surface->w));
+        mposy = std::clamp(mposy, 0.0F, static_cast<float>(surface->h));
+        flip.setObstacle(
+            static_cast<double>(mposx) / flip.simScale,
+            (surface->h - static_cast<double>(mposy)) / flip.simScale,
+            /*reset=*/true);
       }
       if (event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
         move = false;
-        f.scene.obstacleVelX = 0.0f;
-        f.scene.obstacleVelY = 0.0f;
+        flip.scene.obstacleVelX = 0.0;
+        flip.scene.obstacleVelY = 0.0;
       }
       if (event.type == SDL_EVENT_KEY_DOWN) {
         if (event.key.key == SDLK_B) {
@@ -184,7 +269,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
           SDL_SetWindowBordered(window, bordered);
         }
         if (event.key.key == SDLK_ESCAPE) {
-          finished = 1;
+          finished = true;
           break;
         }
       }
@@ -193,86 +278,105 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
       break;
     }
     if (move) {
-      float x, y;
-      SDL_GetMouseState(&x, &y);
-      x = std::clamp(x, 0.0f, (float)surface->w);
-      y = std::clamp(y, 0.0f, (float)surface->h);
-      f.setObstacle(x / f.simScale, (surface->h - y) / f.simScale, false);
+      float mposx {0.0F};
+      float mposy {0.0F};
+      SDL_GetMouseState(&mposx, &mposy);
+      mposx = std::clamp(mposx, 0.0F, static_cast<float>(surface->w));
+      mposy = std::clamp(mposy, 0.0F, static_cast<float>(surface->h));
+      flip.setObstacle(
+          static_cast<double>(mposx) / flip.simScale,
+          (surface->h - static_cast<double>(mposy)) / flip.simScale,
+          /*reset=*/false);
     }
 
-    f.simulate();
+    flip.simulate();
 
-    SDL_SetRenderDrawColor(renderer, 31, 31, 31, SDL_ALPHA_OPAQUE);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
     SDL_RenderClear(renderer);
 
     cmdidx = 0;
-    draw_grid(
-        (int)f.fNumX, (int)f.fNumY, surface->w, surface->h, scale, f.cellColor);
+    draw_grid(static_cast<unsigned int>(flip.fNumX),
+              static_cast<unsigned int>(flip.fNumY),
+              static_cast<unsigned int>(surface->w),
+              static_cast<unsigned int>(surface->h),
+              static_cast<float>(scale),
+              flip.cellColor);
 
-    Command* cmd = (Command*)cmdbuf;
-    Command* end = (Command*)&cmdbuf[cmdidx];
+    auto* cmd = std::bit_cast<Command*>(cmdbuf.data());
+    auto* end = std::bit_cast<Command*>(&cmdbuf.at(cmdidx));
     while (cmd != end) {
       switch (cmd->type) {
         case CommandType::Rectangle: {
-          RectCommand* rc = (RectCommand*)cmd;
-          SDL_SetRenderDrawColorFloat(
-              renderer, rc->c.x(), rc->c.y(), rc->c.z(), rc->c.w());
-          SDL_FRect sr = {
-              rc->bbox.x(), rc->bbox.y(), rc->bbox.z(), rc->bbox.w()};
-          SDL_RenderFillRect(renderer, &sr);
+          auto* rectcmd = std::bit_cast<RectCommand*>(cmd);
+          SDL_SetRenderDrawColorFloat(renderer,
+                                      rectcmd->c.x(),
+                                      rectcmd->c.y(),
+                                      rectcmd->c.z(),
+                                      rectcmd->c.w());
+          const SDL_FRect sdl_bbox = {rectcmd->bbox.x(),
+                                      rectcmd->bbox.y(),
+                                      rectcmd->bbox.z(),
+                                      rectcmd->bbox.w()};
+          SDL_RenderFillRect(renderer, &sdl_bbox);
         } break;
         case CommandType::Text: {
-          TextCommand* tc = (TextCommand*)cmd;
-          SDL_Color c = {(uint8_t)tc->c.x(),
-                         (uint8_t)tc->c.y(),
-                         (uint8_t)tc->c.z(),
-                         (uint8_t)tc->c.w()};
-          SDL_Surface* surfaceMessage = TTF_RenderText_Shaded(
-              Sans, tc->text, tc->nchar, c, {0, 0, 0, 127});
-          SDL_Rect Message_rect;
-          SDL_GetSurfaceClipRect(surfaceMessage, &Message_rect);
-          SDL_FRect mr {tc->bbox.x(),
-                        tc->bbox.y(),
-                        (float)Message_rect.w,
-                        (float)Message_rect.h};
-          SDL_Texture* Message =
-              SDL_CreateTextureFromSurface(renderer, surfaceMessage);
-          SDL_RenderTexture(renderer, Message, NULL, &mr);
-          SDL_DestroySurface(surfaceMessage);
-          SDL_DestroyTexture(Message);
+          // TextCommand* tc = (TextCommand*)cmd;
+          // SDL_Color c = {(uint8_t)tc->c.x(),
+          //                (uint8_t)tc->c.y(),
+          //                (uint8_t)tc->c.z(),
+          //                (uint8_t)tc->c.w()};
+          // SDL_Surface* surfaceMessage = TTF_RenderText_Shaded(
+          //     Sans, tc->text, tc->nchar, c, {0, 0, 0, 127});
+          // SDL_Rect Message_rect;
+          // SDL_GetSurfaceClipRect(surfaceMessage, &Message_rect);
+          // SDL_FRect mr {tc->bbox.x(),
+          //               tc->bbox.y(),
+          //               static_cast<float>(Message_rect.w),
+          //               static_cast<float>(Message_rect.h)};
+          // SDL_Texture* Message =
+          //     SDL_CreateTextureFromSurface(renderer, surfaceMessage);
+          // SDL_RenderTexture(renderer, Message, NULL, &mr);
+          // SDL_DestroySurface(surfaceMessage);
+          // SDL_DestroyTexture(Message);
         } break;
       }
-      cmd = (Command*)(((char*)cmd) + cmd->size);
+      cmd = std::bit_cast<Command*>(std::bit_cast<char*>(cmd) + cmd->size);
     }
 
-    float xx = f.scene.obstacleX;
-    float yy = f.scene.obstacleY;
-    float sx = f.simWidth;
-    float sy = f.simHeight;
+    const double oxx = flip.scene.obstacleX;
+    const double oyy = flip.scene.obstacleY;
+    const double ssx = flip.simWidth;
+    const double ssy = flip.simHeight;
+
+    const auto circle_scale = 10;
 
     draw_circle(renderer,
-                (xx * surface->w / sx - 1.0f),
-                surface->h - (yy * surface->h / sy - 1.0f),
-                f.scene.obstacleRadius * f.fInvSpacing * 10,
-                255,
+                static_cast<int>((oxx * surface->w / ssx) - 1.0),
+                static_cast<int>(surface->h - ((oyy * surface->h / ssy) - 1.0)),
+                static_cast<int>(flip.scene.obstacleRadius * flip.fInvSpacing
+                                 * circle_scale),
+                SDL_ALPHA_OPAQUE,
                 0,
                 0,
-                255);
+                SDL_ALPHA_OPAQUE);
 
     SDL_RenderPresent(renderer);
-    auto ur = 70;
-    if (p++ >= ur) {
+    constexpr auto delay_frames = 70;
+    constexpr auto ms_per_s = 1000.0F;
+    if (framecount++ >= delay_frames) {
       newtime = SDL_GetTicks();
-      p -= ur;
-      fps = 1000.0f * (float)ur / (newtime - oldtime);
-      std::string newt = std::string("Flip Fluid Sim (")
-          + std::to_string((int)fps) + std::string(" fps)");
+      framecount -= delay_frames;
+      fps = ms_per_s * static_cast<float>(delay_frames)
+          / static_cast<float>(newtime - oldtime);
+      const std::string newt = std::string("Flip Fluid Sim (")
+          + std::to_string(static_cast<int>(fps)) + std::string(" fps)");
       SDL_SetWindowTitle(window, newt.c_str());
     }
-    constexpr auto fpslimit = 60.0f;
+    constexpr auto fpslimit = 60.0F;
     auto captime = SDL_GetTicks() - starttime;
-    if (captime < 1000.0f / fpslimit) {
-      SDL_Delay(1000.0f / fpslimit - captime);
+    if (captime < static_cast<int>(ms_per_s / fpslimit)) {
+      SDL_Delay(static_cast<int>(ms_per_s / fpslimit)
+                - static_cast<Uint32>(captime));
     }
   }
 
