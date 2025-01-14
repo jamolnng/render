@@ -213,6 +213,13 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
   SDL_SetRenderVSync(renderer, 1);
 
   auto* surface = SDL_GetWindowSurface(window);
+  if (surface == nullptr) {
+    SDL_Log("SDL_GetWindowSurface failed: %s", SDL_GetError());
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 1;
+  }
 
   // TTF_Init();
   // TTF_Font* Sans = TTF_OpenFont("/usr/share/fonts/noto/NotoSans-Bold.ttf",

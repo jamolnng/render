@@ -33,6 +33,10 @@ variable to provide them to CMake during configuration.
 CMake supports building on Apple Silicon properly since 3.20.1. Make sure you
 have the [latest version][1] installed.
 
+Additionally, make sure you have a copy of freetype accessible to your compiler.
+
+To run, calling the executable raw also doesn't work. You need to call it with ``SDL_RENDER_DRIVER=software ./render``
+
 ## Install
 
 This project doesn't require any special command-line flags to install to keep
