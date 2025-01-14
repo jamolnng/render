@@ -8,6 +8,7 @@
 
 // sdl headers
 #include <SDL3/SDL_events.h>
+#include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_log.h>
@@ -190,6 +191,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
     SDL_Log("SDL_Init failed (%s)", SDL_GetError());
     return 1;
   }
+  SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
 
   SDL_Window* window = nullptr;
   SDL_Renderer* renderer = nullptr;
@@ -213,6 +215,13 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
   SDL_SetRenderVSync(renderer, 1);
 
   auto* surface = SDL_GetWindowSurface(window);
+  if (surface == nullptr) {
+    SDL_Log("SDL_GetWindowSurface failed: %s", SDL_GetError());
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 1;
+  }
 
   // TTF_Init();
   // TTF_Font* Sans = TTF_OpenFont("/usr/share/fonts/noto/NotoSans-Bold.ttf",
