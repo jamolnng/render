@@ -39,14 +39,13 @@ struct RectCommand : public Command
 {
   Color c;
 
-  static std::size_t push(Rect r, Color c, char* buf, std::size_t idx)
+  static auto push(Rect r, Color c, char* buf, std::size_t idx) -> std::size_t
   {
-    RectCommand* rc = (RectCommand*)&buf[idx];
-    rc->type = CommandType::Rectangle;
-    rc->size = sizeof(*rc);
-    rc->bbox = r;
-    rc->c = c;
-    return idx + rc->size;
+    new (&buf[idx]) RectCommand {{.type = CommandType::Rectangle,
+                                  .size = sizeof(RectCommand),
+                                  .bbox = r},
+                                 c};
+    return idx + sizeof(RectCommand);
   }
 };
 
@@ -57,23 +56,22 @@ struct TextCommand : public Command
   std::size_t nchar;
   char text[1];
 
-  static std::size_t push(Point p,
+  static auto push(Point p,
                           int font,
                           Color c,
                           const char* text,
                           std::size_t nchar,
                           char* buf,
-                          std::size_t idx)
+                          std::size_t idx) -> std::size_t
   {
-    TextCommand* rc = (TextCommand*)&buf[idx];
-    rc->type = CommandType::Text;
-    rc->size = sizeof(*rc) + nchar;
-    rc->bbox = {p.x(), p.y(), 0, 0};  // TODO: generate from text
-    rc->c = c;
-    rc->font = font;
-    rc->nchar = nchar;
+    auto* rc = new (&buf[idx]) TextCommand {{.type = CommandType::Text,
+                                  .size = sizeof(TextCommand),
+                                  .bbox = {p.x(), p.y(), 0, 0}},
+                                 font,
+                                 c,
+                                 nchar};
     strncpy(rc->text, text, nchar);
-    return idx + rc->size;
+    return idx + sizeof(TextCommand);
   }
 };
 }  // namespace engine

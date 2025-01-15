@@ -1,8 +1,11 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <cstddef>
 #include <cstdlib>
 #include <ctime>
+#include <format>
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -20,6 +23,9 @@
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
 
+// sdl ttf headers
+#include <SDL3_ttf/SDL_ttf.h>
+
 // engine header
 #include <engine/command.hpp>
 #include <flip/flip.hpp>
@@ -27,10 +33,10 @@
 using engine::Command;
 using engine::CommandType;
 using engine::RectCommand;
-// using engine::TextCommand;
+using engine::TextCommand;
 
 #define BUF_SIZE (1024UL * 1024UL * sizeof(engine::RectCommand))
-static std::array<char, BUF_SIZE> cmdbuf {};
+alignas(engine::RectCommand) static std::array<std::byte, BUF_SIZE> cmdbuf {};
 static std::size_t cmdidx = 0;
 
 namespace
@@ -62,7 +68,7 @@ void draw_grid(unsigned int size_x,
                                      static_cast<float>(cgreen),
                                      static_cast<float>(cblue),
                                      1},
-                                    cmdbuf.data(),
+                                    (char*)cmdbuf.data(),
                                     cmdidx);
     }
   }
@@ -191,7 +197,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
     SDL_Log("SDL_Init failed (%s)", SDL_GetError());
     return 1;
   }
-  SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
+  SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
 
   SDL_Window* window = nullptr;
   SDL_Renderer* renderer = nullptr;
@@ -223,10 +229,10 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
     return 1;
   }
 
-  // TTF_Init();
-  // TTF_Font* Sans = TTF_OpenFont("/usr/share/fonts/noto/NotoSans-Bold.ttf",
-  // 20); TTF_SetFontHinting(Sans, TTF_HINTING_MONO);
-  // TTF_SetFontWrapAlignment(Sans, TTF_HORIZONTAL_ALIGN_RIGHT);
+  TTF_Init();
+  TTF_Font* Sans = TTF_OpenFont("/usr/share/fonts/noto/NotoSans-Bold.ttf", 20);
+  TTF_SetFontHinting(Sans, TTF_HINTING_MONO);
+  TTF_SetFontWrapAlignment(Sans, TTF_HORIZONTAL_ALIGN_RIGHT);
 
   sim::FlipFluid flip {static_cast<double>(surface->w),
                        static_cast<double>(surface->h)};
@@ -238,6 +244,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
 
   bool move = false;
   bool bordered = true;
+  bool paused = true;
+  flip.simulate();
 
   while (true) {
     auto starttime = SDL_GetTicks();
@@ -256,6 +264,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
         break;
       }
       if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+        paused = false;
         move = true;
         float mposx {0.0F};
         float mposy {0.0F};
@@ -298,7 +307,9 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
           /*reset=*/false);
     }
 
-    flip.simulate();
+    if (!paused) {
+      flip.simulate();
+    }
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
     SDL_RenderClear(renderer);
@@ -311,8 +322,17 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
               static_cast<float>(scale),
               flip.cellColor);
 
-    auto* cmd = std::bit_cast<Command*>(cmdbuf.data());
-    auto* end = std::bit_cast<Command*>(&cmdbuf.at(cmdidx));
+    cmdidx = TextCommand::push({15, 15},
+                               0,
+                               {255, 0, 0, 255},
+                               "Hello, World!",
+                               sizeof("Hello, World!"),
+                               (char*)cmdbuf.data(),
+                               cmdidx);
+
+    auto* cmd = std::launder(reinterpret_cast<Command*>(cmdbuf.data()));
+    auto* end = std::launder(reinterpret_cast<Command*>(&cmdbuf.at(cmdidx)));
+
     while (cmd != end) {
       switch (cmd->type) {
         case CommandType::Rectangle: {
@@ -329,27 +349,28 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) -> int
           SDL_RenderFillRect(renderer, &sdl_bbox);
         } break;
         case CommandType::Text: {
-          // TextCommand* tc = (TextCommand*)cmd;
-          // SDL_Color c = {(uint8_t)tc->c.x(),
-          //                (uint8_t)tc->c.y(),
-          //                (uint8_t)tc->c.z(),
-          //                (uint8_t)tc->c.w()};
-          // SDL_Surface* surfaceMessage = TTF_RenderText_Shaded(
-          //     Sans, tc->text, tc->nchar, c, {0, 0, 0, 127});
-          // SDL_Rect Message_rect;
-          // SDL_GetSurfaceClipRect(surfaceMessage, &Message_rect);
-          // SDL_FRect mr {tc->bbox.x(),
-          //               tc->bbox.y(),
-          //               static_cast<float>(Message_rect.w),
-          //               static_cast<float>(Message_rect.h)};
-          // SDL_Texture* Message =
-          //     SDL_CreateTextureFromSurface(renderer, surfaceMessage);
-          // SDL_RenderTexture(renderer, Message, NULL, &mr);
-          // SDL_DestroySurface(surfaceMessage);
-          // SDL_DestroyTexture(Message);
+          TextCommand* tc = (TextCommand*)cmd;
+          SDL_Color c = {(uint8_t)tc->c.x(),
+                         (uint8_t)tc->c.y(),
+                         (uint8_t)tc->c.z(),
+                         (uint8_t)tc->c.w()};
+          SDL_Surface* surfaceMessage = TTF_RenderText_Shaded(
+              Sans, tc->text, tc->nchar, c, {0, 0, 0, 127});
+          SDL_Rect Message_rect;
+          SDL_GetSurfaceClipRect(surfaceMessage, &Message_rect);
+          SDL_FRect mr {tc->bbox.x(),
+                        tc->bbox.y(),
+                        static_cast<float>(Message_rect.w),
+                        static_cast<float>(Message_rect.h)};
+          SDL_Texture* Message =
+              SDL_CreateTextureFromSurface(renderer, surfaceMessage);
+          SDL_RenderTexture(renderer, Message, NULL, &mr);
+          SDL_DestroySurface(surfaceMessage);
+          SDL_DestroyTexture(Message);
         } break;
       }
-      cmd = std::bit_cast<Command*>(std::bit_cast<char*>(cmd) + cmd->size);
+      cmd = std::launder(
+          reinterpret_cast<Command*>(std::bit_cast<char*>(cmd) + cmd->size));
     }
 
     const double oxx = flip.scene.obstacleX;
